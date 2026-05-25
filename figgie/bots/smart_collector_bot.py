@@ -1,17 +1,19 @@
 """Improved collector baseline.
 
 CollectorBot wins the most games (it corners the goal's color) but bleeds net by
-overpaying -- worst of all, buying the worthless common suit (the other half of
-its color) up to 6 at near-peak prices. This version keeps the robust part
-(collect a whole color, since hand-only goal-color ID ~60% beats single-suit
-ID ~39%) but fixes the waste:
+overpaying. The robust core is collecting a whole color (hand-only goal-color ID
+~60% beats single-suit ID ~39%), so this keeps that. Experiments showed the only
+changes that helped (and only marginally -- the collector is near its archetype
+ceiling) were:
 
-  * picks the color by total cards held (more robust than just the longest suit);
-  * within that color, concentrates on the FEWER-held suit (more likely the goal,
-    since you're dealt more of the 12-card common) to `target_lo`, and keeps only
-    `target_hi` of the more-held suit (likely the worthless common);
-  * shades: caps what it pays at `buy_cap` so it stops chasing pivotal cards at
-    the ~10-13 peak, buying cheap and passing on expensive.
+  * picking the color from the hand's goal posterior (`color_by="bayes"`), which
+    edges out the raw longest-suit rule (and beats raw total counts);
+  * mild price shading via a lower `buy_cap` (8 vs 10) so it stops chasing
+    pivotal cards at the ~10-13 peak.
+
+Reducing the more-held suit's target below 6 (the `target_lo`/`target_hi` split)
+*hurt*: that suit is often the goal, so under-collecting it loses the majority.
+Defaults therefore keep full 6/6 cornering; the split knobs remain available.
 """
 
 from __future__ import annotations
@@ -25,8 +27,8 @@ from .base import Action, Ask, Bid, Bot, Observation
 
 class SmartCollectorBot(Bot):
     def __init__(self, name: str | None = None, rng: random.Random | None = None,
-                 target_lo: int = 6, target_hi: int = 3, buy_cap: int = 8,
-                 sell_floor: int = 1, color_by: str = "total"):
+                 target_lo: int = 6, target_hi: int = 6, buy_cap: int = 8,
+                 sell_floor: int = 1, color_by: str = "bayes"):
         super().__init__(name)
         self.rng = rng or random.Random()
         self.target_lo = target_lo
