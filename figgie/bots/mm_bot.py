@@ -40,7 +40,8 @@ class MMBot(Bot):
     def __init__(self, name: str | None = None, rng: random.Random | None = None,
                  buy_frac: float = 0.81, edge: float = 2.03, inv_coef: float = 0.15,
                  target_goal: float = 4.25, ref_alpha: float = 0.48,
-                 sell_floor: float = 0.63, flow_lam: float = 0.08, flow_cap: float = 7.4):
+                 sell_floor: float = 0.63, flow_lam: float = 0.08, flow_cap: float = 7.4,
+                 scalp: float = 0.0, scalp_until: float = 0.7):
         super().__init__(name)
         self.rng = rng or random.Random()
         self.buy_frac = buy_frac
@@ -51,6 +52,12 @@ class MMBot(Bot):
         self.sell_floor = sell_floor
         self.flow_lam = flow_lam
         self.flow_cap = flow_cap
+        # scalp > 0 lets the bot round-trip non-goal suits for spread: it will
+        # pay up to scalp*market_ref (above fundamental value) to buy, relying
+        # on the inventory skew and a late-game cutoff (scalp_until) to flatten
+        # before settlement. scalp = 0 keeps pure value discipline.
+        self.scalp = scalp
+        self.scalp_until = scalp_until
         self.reset(None)
 
     def reset(self, observation: Observation | None) -> None:
@@ -98,6 +105,7 @@ class MMBot(Bot):
         per = 40 // obs.num_players
         buy, sell = card_values(obs.hand, joint, obs.num_players, per, obs.pot)
 
+        scalp_on = self.scalp > 0 and obs.tick < self.scalp_until * obs.total_ticks
         bid_px, ask_px = {}, {}
         for s in ALL_SUITS:
             held = obs.hand[s]
@@ -106,6 +114,8 @@ class MMBot(Bot):
             goal_prob = sum(joint[s].values())
             skew = self.inv_coef * (self.target_goal * goal_prob - held)
             cap = buy[s] * self.buy_frac
+            if scalp_on:
+                cap = max(cap, ref * self.scalp)  # pay up to scalp*market to round-trip
             floor = sell[s] * self.sell_floor
             bid_px[s] = min(cap, ref - self.edge + skew)
             ask_px[s] = max(floor, ref + self.edge + skew)
