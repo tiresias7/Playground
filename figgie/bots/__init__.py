@@ -1,3 +1,4 @@
+from .adaptive_collector_bot import AdaptiveCollectorBot
 from .base import Action, Ask, Bid, Bot, Observation, Quote
 from .collector_bot import CollectorBot
 from .heuristic_bot import HeuristicBot
@@ -9,6 +10,6 @@ from .value_bot import ValueBot
 
 __all__ = [
     "Action", "Ask", "Bid", "Bot", "Observation", "Quote",
-    "CollectorBot", "HeuristicBot", "MMBot", "RandomBot", "SharpBot",
-    "SmartCollectorBot", "ValueBot",
+    "AdaptiveCollectorBot", "CollectorBot", "HeuristicBot", "MMBot", "RandomBot",
+    "SharpBot", "SmartCollectorBot", "ValueBot",
 ]
