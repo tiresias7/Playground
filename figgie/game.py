@@ -27,6 +27,8 @@ class RoundResult:
     final_cash: dict[int, int]
     net: dict[int, int]           # final_cash - (start - ante); profit for the round
     final_hands: dict[int, dict[Suit, int]]
+    dealt_hands: dict[int, dict[Suit, int]]  # hands as originally dealt
+    trades: list                             # full Trade log for the round
     num_trades: int
 
 
@@ -104,6 +106,7 @@ class FiggieGame:
     # --- run ----------------------------------------------------------
     def play(self) -> RoundResult:
         self._deal()
+        self._dealt_hands = {p: dict(self.hands[p]) for p in range(self.n)}
         start = dict(self.cash)
         market = Market(self._owns, self._can_afford, self._settle)
 
@@ -153,5 +156,7 @@ class FiggieGame:
             final_cash=dict(self.cash),
             net=net,
             final_hands={p: dict(self.hands[p]) for p in range(self.n)},
+            dealt_hands=self._dealt_hands,
+            trades=list(market.trades),
             num_trades=len(market.trades),
         )
