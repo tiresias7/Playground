@@ -125,8 +125,12 @@ class Market:
             return bid
 
     def _rest(self, book: OrderBook, player: int, suit: Suit, is_buy: bool, price: int) -> None:
-        order = Order(next(self._ids), player, suit, is_buy, price, self._now())
-        (book.bids if is_buy else book.asks).append(order)
+        # A new quote replaces the player's existing resting order on this side,
+        # so each player holds at most one bid and one ask per suit. This mirrors
+        # a market maker updating its quote and keeps the books bounded.
+        side = book.bids if is_buy else book.asks
+        side[:] = [o for o in side if o.player != player]
+        side.append(Order(next(self._ids), player, suit, is_buy, price, self._now()))
 
     def _execute(self, suit: Suit, price: int, buyer: int, seller: int) -> Trade:
         trade = Trade(suit, price, buyer, seller, self._now())

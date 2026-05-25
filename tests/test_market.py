@@ -79,6 +79,14 @@ def test_stale_ask_cancelled_when_owner_no_longer_holds():
     assert len(w.market.trades) == 0
 
 
+def test_quote_replaces_prior_resting_order():
+    w = World([0, 1])
+    w.market.submit(0, Suit.SPADES, True, 3)   # bid 3
+    w.market.submit(0, Suit.SPADES, True, 5)   # update to bid 5
+    bids = w.market.books[Suit.SPADES].bids
+    assert len(bids) == 1 and bids[0].price == 5
+
+
 def test_conservation():
     w = World([0, 1, 2, 3])
     for p in range(4):
