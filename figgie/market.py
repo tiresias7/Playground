@@ -31,6 +31,7 @@ class Trade:
     buyer: int
     seller: int
     time: int
+    aggressor: int  # the player who submitted the crossing (marketable) order
 
 
 class OrderBook:
@@ -90,7 +91,7 @@ class Market:
             ask = self._best_valid_ask(book)
             if ask is not None and price >= ask.price and ask.player != player:
                 book.remove(ask)
-                return self._execute(suit, ask.price, player, ask.player)
+                return self._execute(suit, ask.price, player, ask.player, player)
             self._rest(book, player, suit, is_buy=True, price=price)
             return None
         else:
@@ -99,7 +100,7 @@ class Market:
             bid = self._best_valid_bid(book)
             if bid is not None and price <= bid.price and bid.player != player:
                 book.remove(bid)
-                return self._execute(suit, bid.price, bid.player, player)
+                return self._execute(suit, bid.price, bid.player, player, player)
             self._rest(book, player, suit, is_buy=False, price=price)
             return None
 
@@ -132,8 +133,9 @@ class Market:
         side[:] = [o for o in side if o.player != player]
         side.append(Order(next(self._ids), player, suit, is_buy, price, self._now()))
 
-    def _execute(self, suit: Suit, price: int, buyer: int, seller: int) -> Trade:
-        trade = Trade(suit, price, buyer, seller, self._now())
+    def _execute(self, suit: Suit, price: int, buyer: int, seller: int,
+                 aggressor: int) -> Trade:
+        trade = Trade(suit, price, buyer, seller, self._now(), aggressor)
         self._on_trade(trade)
         self.trades.append(trade)
         return trade

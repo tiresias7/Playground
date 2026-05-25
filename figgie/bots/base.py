@@ -24,7 +24,7 @@ class Observation:
     hand: dict[Suit, int]      # cards this bot currently holds, per suit
     cash: int                  # this bot's current cash
     market: dict[Suit, Quote]  # top of book per suit
-    last_trades: tuple         # recent Trade objects (suit, price, buyer, seller)
+    trades: list               # live full trade log (read-only); Trade has an aggressor
     tick: int
     total_ticks: int
 

@@ -39,7 +39,6 @@ class FiggieGame:
         pot: int = 200,
         starting_cash: int = 350,
         total_ticks: int = 2000,
-        trade_history: int = 12,
         rng: random.Random | None = None,
     ):
         n = len(bots)
@@ -53,7 +52,6 @@ class FiggieGame:
         self.ante = pot // n
         self.starting_cash = starting_cash
         self.total_ticks = total_ticks
-        self.trade_history = trade_history
         self.rng = rng or random.Random()
 
         self.deck = Deck.random(self.rng)
@@ -99,7 +97,7 @@ class FiggieGame:
             hand=dict(self.hands[player]),
             cash=self.cash[player],
             market=quotes,
-            last_trades=tuple(market.trades[-self.trade_history :]),
+            trades=market.trades,
             tick=tick,
             total_ticks=self.total_ticks,
         )
