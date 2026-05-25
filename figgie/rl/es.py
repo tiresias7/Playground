@@ -27,7 +27,10 @@ from .features import N_ACTIONS, N_FEATURES
 from .policy import Policy
 from .rl_bot import RLBot
 
-BASE_LEAGUE = [("Random",), ("Heur",), ("Value",), ("MM",), ("Collector",), ("AC",)]
+# Training league. AdaptiveCollector is excluded here only for speed (it runs an
+# internal MMBot, doubling per-game cost); MM + Collector already cover its
+# behaviors. It is included again in final evaluation.
+BASE_LEAGUE = [("Random",), ("Heur",), ("Value",), ("MM",), ("Collector",)]
 
 
 def build_opponent(tag, rng):
@@ -72,7 +75,8 @@ def _ranks(fits):
 
 
 def train(gens=60, npert=100, sigma=0.1, lr=0.05, rounds=18, ticks=300,
-          hidden=16, workers=4, seed=0, league_every=12, out="figgie/rl/trained_theta.npy"):
+          hidden=16, workers=4, seed=0, league_every=12, val_every=5,
+          out="figgie/rl/trained_theta.npy"):
     rng = np.random.default_rng(seed)
     pyrng = random.Random(seed)
     pol = Policy(N_FEATURES, N_ACTIONS, hidden)
@@ -81,6 +85,10 @@ def train(gens=60, npert=100, sigma=0.1, lr=0.05, rounds=18, ticks=300,
     league = list(BASE_LEAGUE)
     half = npert // 2
     m = np.zeros_like(mu); v = np.zeros_like(mu); step = 0
+    # Fixed validation set vs the (stable) base league, to pick the best mu
+    # despite training noise.
+    val_seeds = [pyrng.randrange(1 << 30) for _ in range(80)]
+    best_val, best_mu = -1e9, mu.copy()
 
     with Pool(workers) as pool:
         for gen in range(gens):
@@ -101,28 +109,36 @@ def train(gens=60, npert=100, sigma=0.1, lr=0.05, rounds=18, ticks=300,
             v = 0.999 * v + 0.001 * (g * g)
             mu += lr * (m / (1 - 0.9 ** step)) / (np.sqrt(v / (1 - 0.999 ** step)) + 1e-8)
 
+            val = ""
+            if (gen + 1) % val_every == 0:
+                vf = eval_theta((mu, spec, BASE_LEAGUE, val_seeds, ticks))
+                if vf > best_val:
+                    best_val, best_mu = vf, mu.copy()
+                    np.save(out, best_mu)
+                val = f"  val {vf:7.2f}  best {best_val:7.2f}"
             print(f"gen {gen:3d}  mean_fit {fits.mean():7.2f}  max {fits.max():7.2f}  "
-                  f"league {len(league)}", flush=True)
+                  f"league {len(league)}{val}", flush=True)
             if (gen + 1) % league_every == 0:
                 league.append(("RL", mu.copy(), spec))
 
-    np.save(out, mu)
-    print(f"saved policy to {out}  (dim {pol.dim}, hidden {hidden})")
-    return mu, spec
+    np.save(out, best_mu)
+    np.save(out + ".final.npy", mu)
+    print(f"saved best policy (val {best_val:.2f}) to {out}  (dim {pol.dim}, hidden {hidden})")
+    return best_mu, spec
 
 
 def main():
     ap = argparse.ArgumentParser()
     for k, d, t in [("gens", 60, int), ("npert", 100, int), ("rounds", 18, int),
                     ("ticks", 300, int), ("hidden", 16, int), ("workers", 4, int),
-                    ("seed", 0, int), ("league_every", 12, int)]:
+                    ("seed", 0, int), ("league_every", 12, int), ("val_every", 5, int)]:
         ap.add_argument(f"--{k}", type=t, default=d)
     ap.add_argument("--sigma", type=float, default=0.1)
     ap.add_argument("--lr", type=float, default=0.05)
     ap.add_argument("--out", type=str, default="figgie/rl/trained_theta.npy")
     a = ap.parse_args()
     train(a.gens, a.npert, a.sigma, a.lr, a.rounds, a.ticks, a.hidden,
-          a.workers, a.seed, a.league_every, a.out)
+          a.workers, a.seed, a.league_every, a.val_every, a.out)
 
 
 if __name__ == "__main__":
