@@ -7,6 +7,7 @@ per label (labels may repeat -- e.g. two "Sharp" seats are pooled).
 
 from __future__ import annotations
 
+import argparse
 import random
 import statistics as st
 
@@ -58,3 +59,55 @@ def report(roster, rounds: int, seed: int = 0, total_ticks: int = 2000, title: s
               f"{st.fmean(a['pot']):>8.2f}{st.fmean(a['goal']):>9.2f}"
               f"{a['win']/len(a['net']):>7.1%}")
     return agg
+
+
+def ecology(pool, rounds: int, seed: int = 0, total_ticks: int = 2000):
+    """Each round samples a random 4-bot field from `pool` (a {label: factory}
+    dict) and records net per type. Average net per type is its expected result
+    in a random field -- a robust overall ranking. Returns {label: {net, win, n}}."""
+    names = list(pool)
+    rng = random.Random(seed)
+    agg = {n: {"net": [], "win": 0.0} for n in names}
+    for _ in range(rounds):
+        seats = [rng.choice(names) for _ in range(4)]
+        bots = [pool[seats[i]](rng) for i in range(4)]
+        res = FiggieGame(bots, total_ticks=total_ticks,
+                         rng=random.Random(rng.random())).play()
+        best = max(res.net.values())
+        leaders = [i for i in range(4) if res.net[i] == best]
+        for i in range(4):
+            agg[seats[i]]["net"].append(res.net[i])
+            if i in leaders:
+                agg[seats[i]]["win"] += 1.0 / len(leaders)
+
+    print(f"\n=== ecology: {rounds} random 4-bot fields, {total_ticks} ticks ===")
+    print(f"{'bot':<10}{'games':>7}{'net/game':>10}{'win%':>8}")
+    for n in sorted(names, key=lambda x: -(st.fmean(agg[x]['net']) if agg[x]['net'] else 0)):
+        g = len(agg[n]["net"])
+        if g:
+            print(f"{n:<10}{g:>7}{st.fmean(agg[n]['net']):>10.2f}{agg[n]['win']/g:>8.1%}")
+    return agg
+
+
+def _default_pool():
+    from .bots import HeuristicBot, MMBot, RandomBot, SharpBot, ValueBot
+    return {
+        "MM": lambda r: MMBot(rng=random.Random(r.random())),
+        "Sharp": lambda r: SharpBot(rng=random.Random(r.random())),
+        "Value": lambda r: ValueBot(rng=random.Random(r.random())),
+        "Heur": lambda r: HeuristicBot(rng=random.Random(r.random())),
+        "Random": lambda r: RandomBot(rng=random.Random(r.random())),
+    }
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Figgie ecology tournament")
+    ap.add_argument("--rounds", type=int, default=2000)
+    ap.add_argument("--ticks", type=int, default=2000)
+    ap.add_argument("--seed", type=int, default=12345)
+    args = ap.parse_args()
+    ecology(_default_pool(), args.rounds, args.seed, args.ticks)
+
+
+if __name__ == "__main__":
+    main()

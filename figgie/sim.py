@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import random
 
-from .bots import HeuristicBot, RandomBot
+from .bots import HeuristicBot, MMBot, RandomBot, ValueBot
 from .bots.base import Bot
 from .game import FiggieGame
 
@@ -44,11 +44,11 @@ def run(make_bots, rounds: int, seed: int | None = None, verbose: bool = False):
 
 
 def default_bots(rng: random.Random) -> list[Bot]:
-    # Three value traders against one noise trader.
+    # The flagship market maker against the weaker bot families.
     return [
+        MMBot("mm-0", random.Random(rng.random())),
+        ValueBot("value-0", random.Random(rng.random())),
         HeuristicBot("heuristic-0", random.Random(rng.random())),
-        HeuristicBot("heuristic-1", random.Random(rng.random())),
-        HeuristicBot("heuristic-2", random.Random(rng.random())),
         RandomBot("random-0", rng=random.Random(rng.random())),
     ]
 
