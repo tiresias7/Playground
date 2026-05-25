@@ -33,24 +33,40 @@ def _legal_configs() -> list[dict[Suit, int]]:
 _CONFIGS = _legal_configs()
 
 
-def goal_posterior(hand: dict[Suit, int]) -> dict[Suit, float]:
-    """Posterior probability that each suit is the goal suit, given `hand`."""
+def _posterior_weights(hand: dict[Suit, int]) -> list[tuple[dict[Suit, int], float]]:
+    """Normalized posterior weight for each legal config given the hand."""
     weights = []
     for counts in _CONFIGS:
         w = 1.0
-        ok = True
         for s in ALL_SUITS:
             if hand[s] > counts[s]:
-                ok = False  # impossible: holding more than the deck contains
+                w = 0.0  # impossible: holding more than the deck contains
                 break
             w *= comb(counts[s], hand[s])
-        weights.append(w if ok else 0.0)
-
+        weights.append(w)
     total = sum(weights)
-    post = {s: 0.0 for s in ALL_SUITS}
     if total == 0:
-        return post
-    for counts, w in zip(_CONFIGS, weights):
+        return [(c, 0.0) for c in _CONFIGS]
+    return [(c, w / total) for c, w in zip(_CONFIGS, weights)]
+
+
+def goal_posterior(hand: dict[Suit, int]) -> dict[Suit, float]:
+    """Posterior probability that each suit is the goal suit, given `hand`."""
+    post = {s: 0.0 for s in ALL_SUITS}
+    for counts, w in _posterior_weights(hand):
         common = max(counts, key=lambda s: counts[s])
-        post[common.partner] += w / total
+        post[common.partner] += w
     return post
+
+
+def goal_size_posterior(hand: dict[Suit, int]) -> dict[Suit, dict[int, float]]:
+    """Joint posterior P(goal == suit and goal size == G), as {suit: {G: prob}}."""
+    out: dict[Suit, dict[int, float]] = {s: {} for s in ALL_SUITS}
+    for counts, w in _posterior_weights(hand):
+        if w == 0.0:
+            continue
+        common = max(counts, key=lambda s: counts[s])
+        goal = common.partner
+        G = counts[goal]
+        out[goal][G] = out[goal].get(G, 0.0) + w
+    return out

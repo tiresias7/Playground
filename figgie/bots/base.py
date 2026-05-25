@@ -20,6 +20,7 @@ class Quote:
 class Observation:
     player: int
     num_players: int
+    pot: int                   # total pot paid out at settlement
     hand: dict[Suit, int]      # cards this bot currently holds, per suit
     cash: int                  # this bot's current cash
     market: dict[Suit, Quote]  # top of book per suit

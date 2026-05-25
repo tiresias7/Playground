@@ -95,6 +95,7 @@ class FiggieGame:
         return Observation(
             player=player,
             num_players=self.n,
+            pot=self.pot,
             hand=dict(self.hands[player]),
             cash=self.cash[player],
             market=quotes,
