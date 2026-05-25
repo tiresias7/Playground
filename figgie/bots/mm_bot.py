@@ -33,10 +33,14 @@ from .base import Action, Ask, Bid, Bot, Observation
 
 
 class MMBot(Bot):
+    # Defaults are the result of self-play tuning (figgie.tune). The optimizer
+    # drove inventory skew and order-flow weight near zero and settled on a
+    # disciplined accumulate-and-hold market maker: buy the goal below value,
+    # hold a target position for the pot, sell junk above value.
     def __init__(self, name: str | None = None, rng: random.Random | None = None,
-                 buy_frac: float = 0.9, edge: float = 1.5, inv_coef: float = 3.0,
-                 target_goal: float = 3.5, ref_alpha: float = 0.4,
-                 sell_floor: float = 0.5, flow_lam: float = 0.45, flow_cap: float = 6.0):
+                 buy_frac: float = 0.81, edge: float = 2.03, inv_coef: float = 0.15,
+                 target_goal: float = 4.25, ref_alpha: float = 0.48,
+                 sell_floor: float = 0.63, flow_lam: float = 0.08, flow_cap: float = 7.4):
         super().__init__(name)
         self.rng = rng or random.Random()
         self.buy_frac = buy_frac
