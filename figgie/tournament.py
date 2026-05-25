@@ -90,12 +90,14 @@ def ecology(pool, rounds: int, seed: int = 0, total_ticks: int = 2000):
 
 
 def _default_pool():
-    from .bots import HeuristicBot, MMBot, RandomBot, SharpBot, ValueBot
+    from .bots import (CollectorBot, HeuristicBot, MMBot, RandomBot, SharpBot,
+                       ValueBot)
     return {
         "MM": lambda r: MMBot(rng=random.Random(r.random())),
         "Sharp": lambda r: SharpBot(rng=random.Random(r.random())),
         "Value": lambda r: ValueBot(rng=random.Random(r.random())),
         "Heur": lambda r: HeuristicBot(rng=random.Random(r.random())),
+        "Collector": lambda r: CollectorBot(rng=random.Random(r.random())),
         "Random": lambda r: RandomBot(rng=random.Random(r.random())),
     }
 
