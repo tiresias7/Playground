@@ -31,7 +31,7 @@ from .mm_bot import MMBot
 
 class AdaptiveCollectorBot(Bot):
     def __init__(self, name: str | None = None, rng: random.Random | None = None,
-                 commit: float = 0.62, target: int = 6, buy_cap: int = 8,
+                 commit: float = 0.72, target: int = 6, buy_cap: int = 8,
                  sell_floor: int = 1, take_p: float = 1.0):
         super().__init__(name)
         self.rng = rng or random.Random()
