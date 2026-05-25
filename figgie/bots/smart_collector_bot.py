@@ -19,6 +19,7 @@ from __future__ import annotations
 import random
 
 from ..cards import ALL_SUITS, Suit
+from ..inference import goal_posterior
 from .base import Action, Ask, Bid, Bot, Observation
 
 
@@ -44,7 +45,13 @@ class SmartCollectorBot(Bot):
         if self.color_by == "longest":
             longest = max(ALL_SUITS, key=lambda s: hand[s])
             color = (longest, longest.partner)
-        else:  # by total cards held per color (more robust)
+        elif self.color_by == "bayes":
+            # Pick the color the hand posterior says is most likely the goal color.
+            post = goal_posterior(hand)
+            black = post[Suit.SPADES] + post[Suit.CLUBS]
+            red = post[Suit.HEARTS] + post[Suit.DIAMONDS]
+            color = (Suit.SPADES, Suit.CLUBS) if black >= red else (Suit.HEARTS, Suit.DIAMONDS)
+        else:  # by total cards held per color (more robust than longest)
             black = hand[Suit.SPADES] + hand[Suit.CLUBS]
             red = hand[Suit.HEARTS] + hand[Suit.DIAMONDS]
             color = (Suit.SPADES, Suit.CLUBS) if black >= red else (Suit.HEARTS, Suit.DIAMONDS)
