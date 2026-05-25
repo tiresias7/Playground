@@ -20,18 +20,25 @@ import math
 import random
 from multiprocessing import Pool
 
-from .bots import HeuristicBot, RandomBot, SharpBot, ValueBot
+from .bots import HeuristicBot, MMBot, RandomBot, ValueBot
 from .game import FiggieGame
 
-PARAMS = ("buy_frac", "sell_frac", "flow_lam", "flow_cap")
+PARAMS = ("buy_frac", "edge", "inv_coef", "target_goal",
+          "ref_alpha", "sell_floor", "flow_lam", "flow_cap")
 BOUNDS = {
-    "buy_frac": (0.2, 1.0),
-    "sell_frac": (1.0, 2.5),
+    "buy_frac": (0.4, 1.2),
+    "edge": (0.5, 5.0),
+    "inv_coef": (0.0, 8.0),
+    "target_goal": (0.0, 6.0),
+    "ref_alpha": (0.0, 1.0),
+    "sell_floor": (0.0, 1.0),
     "flow_lam": (0.0, 1.5),
     "flow_cap": (1.0, 14.0),
 }
-INIT_MEAN = {"buy_frac": 0.65, "sell_frac": 1.35, "flow_lam": 0.45, "flow_cap": 6.0}
-INIT_STD = {"buy_frac": 0.25, "sell_frac": 0.4, "flow_lam": 0.4, "flow_cap": 4.0}
+INIT_MEAN = {"buy_frac": 0.9, "edge": 1.5, "inv_coef": 3.0, "target_goal": 3.5,
+             "ref_alpha": 0.4, "sell_floor": 0.5, "flow_lam": 0.45, "flow_cap": 6.0}
+INIT_STD = {"buy_frac": 0.3, "edge": 1.5, "inv_coef": 2.5, "target_goal": 2.0,
+            "ref_alpha": 0.3, "sell_floor": 0.3, "flow_lam": 0.4, "flow_cap": 4.0}
 
 
 def _clip(name, v):
@@ -51,18 +58,18 @@ def eval_candidate(args):
     cp = dict(zip(PARAMS, cand))
     ip = dict(zip(PARAMS, incumbent))
 
-    def cf(r): return SharpBot(rng=r, **cp)
-    def inf(r): return SharpBot(rng=r, **ip)
+    def cf(r): return MMBot(rng=r, **cp)
+    def inf(r): return MMBot(rng=r, **ip)
     def vf(r): return ValueBot(rng=r)
     def hf(r): return HeuristicBot(rng=r)
     def rf(r): return RandomBot(rng=r)
 
     A = B = 0.0
     for seed in seeds:
-        A += _game([cf, inf, inf, inf], seed, total_ticks).net[0]
-        B += _game([cf, vf, hf, rf], seed + 777, total_ticks).net[0]
+        A += _game([cf, inf, inf, inf], seed, total_ticks).net[0]          # best-response
+        B += _game([cf, hf, vf, rf], seed + 777, total_ticks).net[0]       # mixed exploit
     k = len(seeds)
-    return 0.6 * (A / k) + 0.4 * (B / k)
+    return 0.5 * (A / k) + 0.5 * (B / k)
 
 
 def cem(generations=8, pop=24, elite_frac=0.25, rounds=140, total_ticks=800,
