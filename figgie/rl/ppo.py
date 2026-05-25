@@ -104,10 +104,13 @@ def gae(rewards, values, gamma=0.997, lam=0.95):
 
 def train(updates=150, episodes_per=16, ticks=250, hidden=64, lr=3e-4,
           clip=0.2, epochs=4, ent=0.01, league_every=40, seed=0,
-          out="figgie/rl/ppo_policy.pt"):
+          init=None, out="figgie/rl/ppo_policy.pt"):
     torch.manual_seed(seed)
     rng = random.Random(seed)
     net = ActorCritic(hidden=hidden)
+    if init:
+        net.load_state_dict(torch.load(init))
+        print(f"warm-started from {init}", flush=True)
     opt = torch.optim.Adam(net.parameters(), lr=lr)
     league = base_league()
 
@@ -164,10 +167,11 @@ def main():
                  ("hidden", 64), ("epochs", 4), ("league_every", 40), ("seed", 0)]:
         ap.add_argument(f"--{k}", type=int, default=d)
     ap.add_argument("--lr", type=float, default=3e-4)
+    ap.add_argument("--init", type=str, default=None)
     ap.add_argument("--out", type=str, default="figgie/rl/ppo_policy.pt")
     a = ap.parse_args()
     train(a.updates, a.episodes_per, a.ticks, a.hidden, a.lr, epochs=a.epochs,
-          league_every=a.league_every, seed=a.seed, out=a.out)
+          league_every=a.league_every, seed=a.seed, init=a.init, out=a.out)
 
 
 if __name__ == "__main__":
