@@ -18,7 +18,9 @@ from ..bots.base import Ask, Bid
 from ..cards import ALL_SUITS
 
 SUITS = list(ALL_SUITS)
-N_FEATURES = 4 + 1 + 8 + 4 + 4 + 4 + 1
+# hand(4) cash(1) bid/ask(8) last(4) flow(4) goal-post(4) buy/sell value(8) time(1)
+N_FEATURES = 4 + 1 + 8 + 4 + 4 + 4 + 8 + 1
+VALUE_NORM = 20.0
 PER_SUIT_ACTIONS = 8  # take_buy, take_sell, 3 bid levels, 3 ask levels
 N_ACTIONS = 1 + PER_SUIT_ACTIONS * 4
 BID_DELTAS = (-3, -1, 1)   # passive, mid, aggressive
@@ -40,9 +42,10 @@ def _ref(obs, last, s) -> float:
     return 6.0
 
 
-def encode(obs, net, last, post):
+def encode(obs, net, last, post, buy, sell):
     """Return (features: np.float32[N_FEATURES], mask: bool[N_ACTIONS],
-    actions: list[N_ACTIONS] of Bid/Ask/None)."""
+    actions: list[N_ACTIONS] of Bid/Ask/None). `buy`/`sell` are the marginal
+    card values per suit (figgie.valuation)."""
     per = 40 // obs.num_players
     f = np.empty(N_FEATURES, dtype=np.float32)
     k = 0
@@ -59,6 +62,9 @@ def encode(obs, net, last, post):
         f[k] = max(-8, min(8, net[s])) / 8.0; k += 1
     for s in SUITS:
         f[k] = post[s]; k += 1
+    for s in SUITS:
+        f[k] = buy[s] / VALUE_NORM; k += 1
+        f[k] = sell[s] / VALUE_NORM; k += 1
     f[k] = obs.tick / max(1, obs.total_ticks); k += 1
 
     actions = [None] * N_ACTIONS
