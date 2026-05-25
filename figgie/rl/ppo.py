@@ -104,13 +104,21 @@ def gae(rewards, values, gamma=0.997, lam=0.95):
 
 def train(updates=150, episodes_per=16, ticks=250, hidden=64, lr=3e-4,
           clip=0.2, epochs=4, ent=0.01, league_every=40, seed=0,
-          init=None, out="figgie/rl/ppo_policy.pt"):
+          init=None, kl_ref=None, kl_beta=0.0, out="figgie/rl/ppo_policy.pt"):
     torch.manual_seed(seed)
     rng = random.Random(seed)
     net = ActorCritic(hidden=hidden)
     if init:
         net.load_state_dict(torch.load(init))
         print(f"warm-started from {init}", flush=True)
+    # Optional KL anchor to a frozen reference policy (e.g. the BC clone), to
+    # finetune without drifting off the warm-started basin (RLHF-style).
+    ref = None
+    if kl_ref:
+        ref = ActorCritic(hidden=hidden)
+        ref.load_state_dict(torch.load(kl_ref))
+        ref.eval()
+        print(f"KL anchor to {kl_ref} (beta {kl_beta})", flush=True)
     opt = torch.optim.Adam(net.parameters(), lr=lr)
     league = base_league()
 
@@ -147,6 +155,11 @@ def train(updates=150, episodes_per=16, ticks=250, hidden=64, lr=3e-4,
                 pi_loss = -torch.min(a1, a2).mean()
                 v_loss = ((v - RET[b]) ** 2).mean()
                 loss = pi_loss + 0.5 * v_loss - ent * dist.entropy().mean()
+                if ref is not None:
+                    with torch.no_grad():
+                        rlogits, _ = ref(F[b])
+                        rdist = torch.distributions.Categorical(logits=_masked(rlogits, M[b]))
+                    loss = loss + kl_beta * torch.distributions.kl_divergence(dist, rdist).mean()
                 opt.zero_grad(); loss.backward()
                 nn.utils.clip_grad_norm_(net.parameters(), 0.5); opt.step()
 
@@ -168,10 +181,13 @@ def main():
         ap.add_argument(f"--{k}", type=int, default=d)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--init", type=str, default=None)
+    ap.add_argument("--kl_ref", type=str, default=None)
+    ap.add_argument("--kl_beta", type=float, default=0.0)
     ap.add_argument("--out", type=str, default="figgie/rl/ppo_policy.pt")
     a = ap.parse_args()
     train(a.updates, a.episodes_per, a.ticks, a.hidden, a.lr, epochs=a.epochs,
-          league_every=a.league_every, seed=a.seed, init=a.init, out=a.out)
+          league_every=a.league_every, seed=a.seed, init=a.init,
+          kl_ref=a.kl_ref, kl_beta=a.kl_beta, out=a.out)
 
 
 if __name__ == "__main__":
