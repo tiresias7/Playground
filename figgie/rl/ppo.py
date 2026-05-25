@@ -47,7 +47,6 @@ class PPOBot(Bot):
         super().__init__(name)
         self.net = net
         self.greedy = greedy
-        self.rng = torch.Generator().manual_seed(seed)
         self.st = AgentState()
 
     def reset(self, obs):
@@ -61,7 +60,7 @@ class PPOBot(Bot):
         if self.greedy:
             a = int(torch.argmax(ml))
         else:
-            a = int(torch.distributions.Categorical(logits=ml).sample(generator=self.rng))
+            a = int(torch.distributions.Categorical(logits=ml).sample())
         return actions[a]
 
 
