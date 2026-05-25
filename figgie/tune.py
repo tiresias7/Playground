@@ -20,7 +20,7 @@ import math
 import random
 from multiprocessing import Pool
 
-from .bots import HeuristicBot, MMBot, RandomBot, ValueBot
+from .bots import HeuristicBot, MMBot, RandomBot, SharpBot, ValueBot
 from .game import FiggieGame
 
 PARAMS = ("buy_frac", "edge", "inv_coef", "target_goal",
@@ -53,23 +53,30 @@ def _game(factories, seed, total_ticks):
 
 
 def eval_candidate(args):
-    """Top-level so it is picklable for multiprocessing."""
+    """Top-level so it is picklable for multiprocessing.
+
+    Fitness = candidate's average net across random ecology fields: the
+    candidate sits at seat 0 and the other three seats are drawn (per seed, so
+    comparisons stay paired) from the opponent pool, which includes a copy of
+    the current incumbent. This directly targets the grand-ecology metric."""
     cand, incumbent, seeds, total_ticks = args
     cp = dict(zip(PARAMS, cand))
     ip = dict(zip(PARAMS, incumbent))
 
     def cf(r): return MMBot(rng=r, **cp)
-    def inf(r): return MMBot(rng=r, **ip)
-    def vf(r): return ValueBot(rng=r)
-    def hf(r): return HeuristicBot(rng=r)
-    def rf(r): return RandomBot(rng=r)
-
-    A = B = 0.0
+    pool = [
+        lambda r: MMBot(rng=r, **ip),
+        lambda r: ValueBot(rng=r),
+        lambda r: HeuristicBot(rng=r),
+        lambda r: RandomBot(rng=r),
+        lambda r: SharpBot(rng=r),
+    ]
+    total = 0.0
     for seed in seeds:
-        A += _game([cf, inf, inf, inf], seed, total_ticks).net[0]          # best-response
-        B += _game([cf, hf, vf, rf], seed + 777, total_ticks).net[0]       # mixed exploit
-    k = len(seeds)
-    return 0.5 * (A / k) + 0.5 * (B / k)
+        pick = random.Random(seed ^ 0x5bd1e995)
+        opp = [pick.choice(pool) for _ in range(3)]
+        total += _game([cf, *opp], seed, total_ticks).net[0]
+    return total / len(seeds)
 
 
 def cem(generations=8, pop=24, elite_frac=0.25, rounds=140, total_ticks=800,
