@@ -1,0 +1,5 @@
+# Core framework is pure Python stdlib -- no runtime dependencies.
+# Dev / optional only:
+pytest>=7.0          # tests
+# numpy / matplotlib are NOT required by the core; add them if you extend
+# diagnostics with plotting in later phases.
