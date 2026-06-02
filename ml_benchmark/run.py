@@ -46,7 +46,8 @@ def _overview_png(results, path):
             if not np.isnan(Z[i, j]):
                 ax.text(j, i, f"{Z[i, j]:.2f}", ha="center", va="center",
                         fontsize=8, color="black")
-    ax.set_title("test R²  (调优后, 越绿越好)")
+    # 标题用英文: matplotlib 默认字体 (DejaVu Sans) 不含中文字形
+    ax.set_title("test R²  (tuned; greener = better)")
     fig.colorbar(im, ax=ax, fraction=0.025)
     fig.tight_layout()
     fig.savefig(path, dpi=130)
