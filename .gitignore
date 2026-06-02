@@ -4,3 +4,7 @@ __pycache__/
 *.egg-info/
 .venv/
 *.npy
+
+# ml_benchmark 生成产物
+ml_benchmark/report.html
+ml_benchmark/overview.png
