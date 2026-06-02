@@ -155,6 +155,51 @@ def fig_feature_engineering(all_extras):
 
 
 # --------------------------------------------------------------------------- #
+# 5. 学习曲线 (需要多少数据?)
+# --------------------------------------------------------------------------- #
+def fig_learning_curve(lc):
+    fig = go.Figure()
+    for model_name, c in lc["curves"].items():
+        fig.add_trace(go.Scatter(
+            x=c["sizes"], y=c["test_r2"], mode="lines+markers",
+            name=model_name, line=dict(color=c["color"])))
+    fig.update_layout(
+        title=f"⑤ 学习曲线 · {lc['dataset']} — 需要多少数据? (越多越好则该模型对数据越饥渴)",
+        xaxis_title="训练样本数", yaxis_title="test R²", height=400,
+        legend=dict(orientation="h", y=-0.2))
+    return fig
+
+
+# --------------------------------------------------------------------------- #
+# 6. 训练时间对比
+# --------------------------------------------------------------------------- #
+def fig_fit_time(results):
+    """各模型在所有数据集上的平均训练时间 (默认超参), 对数轴。"""
+    import numpy as np
+
+    times: dict[str, list] = {}
+    for r in results:
+        d = r.__dict__ if hasattr(r, "__dict__") else r
+        if d["tuned"]:
+            continue
+        times.setdefault(d["model"], []).append(d["fit_time"])
+    models = [s.name for s in mdl.MODELS.values() if s.name in times]
+    means = [float(np.mean(times[m])) for m in models]
+    stds = [float(np.std(times[m])) for m in models]
+    colors = [_MODEL_COLOR.get(m, "#555") for m in models]
+
+    fig = go.Figure(go.Bar(
+        x=models, y=means,
+        error_y=dict(type="data", array=stds, visible=True),
+        marker_color=colors,
+        text=[f"{v*1000:.0f} ms" for v in means], textposition="outside"))
+    fig.update_layout(
+        title="⑥ 训练时间对比 (默认超参, 各数据集平均) — 对数轴",
+        yaxis_title="fit 时间 (秒)", yaxis_type="log", height=380)
+    return fig
+
+
+# --------------------------------------------------------------------------- #
 # 辅助
 # --------------------------------------------------------------------------- #
 def _best_per_pair(results, use_tuned):

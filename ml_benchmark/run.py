@@ -100,6 +100,16 @@ def main():
     # 特征工程增益
     figs.append(viz.fig_feature_engineering(all_extras))
 
+    # 学习曲线 (需要多少数据?) — 选简单→复杂三个代表性数据集
+    print("\n学习曲线 ...")
+    for dname in ("linear_additive", "interaction", "high_freq_periodic"):
+        if dname in dmap:
+            figs.append(viz.fig_learning_curve(
+                tu.learning_curve(dmap[dname], seed=args.seed)))
+
+    # 训练时间对比
+    figs.append(viz.fig_fit_time(results))
+
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     viz.build_report(figs, args.out)
     _overview_png(results, args.png)

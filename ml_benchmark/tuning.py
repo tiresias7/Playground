@@ -68,3 +68,35 @@ def gbt_staged(dataset: ds.Dataset, learning_rate=0.1, max_depth=3,
                 best_n_estimators=best_n, best_test_r2=float(test_r2.max()),
                 learning_rate=learning_rate, max_depth=max_depth,
                 dataset=dataset.name)
+
+
+def learning_curve(dataset: ds.Dataset, model_keys=None, fractions=None,
+                   test_size=0.3, seed=0):
+    """学习曲线: 固定 test 集, 改变训练样本数, 看 test R² 如何随数据量增长。
+
+    回答课堂提到的"需要多少数据"——
+      - 线性回归在简单线性数据上很快触顶, 再多数据帮助有限;
+      - 树类/集成在复杂数据上对数据量更"饥渴", 数据越多越占优。
+    用同一份随机排列取前 k 个, 保证小训练集是大训练集的子集 (嵌套)。
+    """
+    model_keys = model_keys or list(mdl.MODELS)
+    fractions = fractions or [0.05, 0.1, 0.2, 0.35, 0.55, 0.8, 1.0]
+
+    Xtr_full, Xte, ytr_full, yte = train_test_split(
+        dataset.X, dataset.y, test_size=test_size, random_state=seed)
+    n = len(ytr_full)
+    order = np.random.default_rng(seed).permutation(n)
+
+    curves = {}
+    for key in model_keys:
+        spec = mdl.MODELS[key]
+        sizes, scores = [], []
+        for frac in fractions:
+            k = max(15, int(frac * n))
+            idx = order[:k]
+            est = spec.factory()
+            est.fit(Xtr_full[idx], ytr_full[idx])
+            sizes.append(k)
+            scores.append(r2_score(yte, est.predict(Xte)))
+        curves[spec.name] = dict(sizes=sizes, test_r2=scores, color=spec.color)
+    return dict(dataset=dataset.name, curves=curves)
