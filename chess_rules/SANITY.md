@@ -212,6 +212,60 @@ the **rule**, not the strategic subset. Why: legality lives in move *shapes*
 positions; strategy lives in move *choices*. A biased choice distribution still
 exhibits the full shape repertoire.
 
+## [K] Mixing a strategist into noise — when does the signal survive?
+
+`MixtureBot` plays `alpha · capture + (1-alpha) · uniform`
+(`python -m chess_rules.mixture`). Sweep alpha:
+
+| alpha | data capture % | random baseline % | legality AUC (hard neg) | **capture-signal AUC** | (train) |
+|---|---|---|---|---|---|
+| 0.00 | 12.1 | 12.2 | 0.899 | 0.452 | 0.441 |
+| 0.05 | 13.1 | 11.4 | 0.863 | 0.448 | 0.476 |
+| 0.10 | 16.2 | 11.3 | 0.904 | **0.608** | 0.600 |
+| 0.20 | 19.8 | 9.8 | 0.861 | 0.829 | 0.807 |
+| 0.50 | 27.3 | 7.9 | 0.823 | 0.979 | 0.970 |
+| 1.00 | 33.6 | 5.6 | 0.772 | 0.995 | 0.978 |
+
+- **Rules survive everywhere** — legality AUC stays 0.77–0.90 at *every* alpha,
+  and is *highest at alpha=0* (pure random). Adding noise doesn't hurt rule
+  recovery; it *helps* (broader support). Pure capture (alpha=1) is the *worst*
+  for rules (0.77) — narrow exploration.
+- **The strategy signal has a detectability threshold ≈ alpha 0.1** (for this
+  data budget, ~a few thousand moves). At 5% capture the preference is
+  indistinguishable from chance (AUC 0.45); it emerges by 10% and is strong by
+  20%. The threshold scales with data — more games would push it lower (signal
+  detection ~ √n).
+- **No overfitting to noise.** Held-out vs train capture-signal AUC track each
+  other at every alpha (e.g. 0.448 vs 0.476 at alpha=0.05) — the gradient-boosted
+  ranker does *not* hallucinate a capture preference where there is none. (A
+  neural net with more capacity might; worth checking if we switch models.)
+
+## [L] Can we predict the look-ahead bots better? (closing the ceiling gap)
+
+The ceiling gap for center/mobility/minimax ([I]) is a *feature* limitation.
+Add consequence features to the move ranker (`python -m chess_rules.enrich`).
+Top-1 as % of ceiling:
+
+| bot | ceiling | base | +geo (centrality, honest) | +oracle (1-ply material & mobility) |
+|---|---|---|---|---|
+| center | 0.325 | 50% | **97%** | 101% |
+| mobility | 0.568 | 47% | 53% | **67%** |
+| minimax | 0.334 | 47% | 44% | 46% |
+
+- **center: 50% → 97%** with one honest feature — destination centrality from
+  the *recovered* grid. The center bot's decision variable is exactly that, so
+  giving it the feature nearly saturates the ceiling. The shortfall was pure
+  feature-poverty.
+- **mobility: 47% → 67%** with a 1-ply "opponent replies after the move" oracle
+  feature — it helps but doesn't saturate (stochastic ties).
+- **minimax: stuck at ~46%** — depth-2 material *search* is not expressible in
+  shallow consequence features; closing it would mean approximating the search
+  itself.
+
+Takeaway: predictability of a strategy is closable exactly to the depth your
+features match its decision variable. Shallow strategies (centrality) close
+fully; search-based strategies need matching look-ahead.
+
 ## Scope — which universe, which claim
 
 The observed moves are a **biased sub-universe** of the legal universe (each bot
