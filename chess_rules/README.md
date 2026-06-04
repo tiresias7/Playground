@@ -64,7 +64,7 @@ movement fingerprint, then cluster symbols (unsupervised).
 | metric | value |
 |---|---|
 | symbol→piece-kind clustering (Adjusted Rand Index) | **1.00** |
-| observed displacements legal for the true piece (precision) | **1.00** |
+| observed displacements legal for the true piece (precision) | 1.00 *(tautological — bots only play legal moves; reported as a guard, not a result)* |
 
 The 12 moving symbols sort **perfectly** into the 6 piece kinds, both colors
 together. The recovered fingerprints speak for themselves (symbol is opaque to
@@ -87,12 +87,21 @@ direction of pawn movement. See `results/pieces.png`.
 ### Experiment 3 — Legal-move support (the rules)
 A negative-sampling classifier (observed moves as positives, random `(from,to)`
 corruptions as negatives — PU learning) recovers the legal support, scored
-against python-chess ground truth it never saw:
+against python-chess ground truth it never saw. **The recovery is layered, and
+the number depends entirely on how hard the negatives are** (see
+[`SANITY.md`](SANITY.md)):
 
-| metric | value |
-|---|---|
-| ROC-AUC (legal vs illegal candidates) | **0.995** |
-| average precision | **0.995** |
+| legal vs. negatives of type… | ROC-AUC | rule layer tested |
+|---|---|---|
+| random `(from,to)` (easy) | 0.995 | mostly trivial geometry |
+| **self-capture** (valid shape, own piece) | **0.960** | occupancy/capture rule |
+| **pin/check** (king-safety only) | **0.473** | not recovered (chance) |
+
+The honest read: movement geometry and capture/occupancy rules are genuinely
+recovered (and beat a memorization baseline — 0.96 vs 0.55 on hard negatives),
+but king-safety rules are *not* — the 64-occupancy encoding carries no check
+information by construction. The often-quoted "0.995" is the optimistic,
+easy-negative number.
 
 ### Experiment 4 — Rules vs. strategy disentanglement
 The headline. **Rules = what is invariant across data sources; strategy = what
@@ -132,11 +141,19 @@ the remaining 38% is even available for strategy to explain.
 ## Answering the research question
 
 **How much hidden structure is recoverable from observations alone?**
-Most of it. With zero domain knowledge, the pipeline recovers the board's
-geometry (Procrustes 0.05), every piece's movement rule and the 6 piece kinds
-(ARI 1.0), color as pawn-direction symmetry, and the legal-move support
-(AUC 0.995) — and it cleanly separates rules from strategy by their
+The *static, geometric, occupancy* layer of chess — and that layer genuinely
+generalizes (it beats memorization baselines on hard negatives). With zero
+domain knowledge the pipeline recovers the board's geometry (Procrustes 0.05),
+every piece's movement rule and the 6 piece kinds (ARI 1.0), color as
+pawn-direction symmetry, and the capture/occupancy legality rule (AUC 0.96 vs a
+0.55 lookup baseline) — and it cleanly separates rules from strategy by their
 **invariance across data sources**.
+
+The *dynamic* layer is **not** recovered: king-safety rules (pins, moving into
+check) sit at chance (AUC 0.47) because the encoding carries no check
+information, and the model does not induce unbounded sliding — it anchors to the
+move lengths it observed. See [`SANITY.md`](SANITY.md) for the full audit
+(memorization probes, hard negatives, rule-extrapolation, complexity stats).
 
 **Why does this work?** Chess rules are a *hard constraint* on the support of
 `P(move | state)`: illegal moves never appear, in any position, under any bot.
@@ -173,6 +190,7 @@ chess_rules/
   legality.py     E3: recover the legal-move support (rules)
   strategy.py     E4: recover preferences; rules-vs-strategy bit split
   experiment.py   orchestrates E1-E4, writes results/ (json + figures)
+  sanity.py       memorization probes, hard negatives, extrapolation (SANITY.md)
   results/        results.json, geometry.png, pieces.png, transfer.png
 tests/test_chess_rules.py
 ```
@@ -183,5 +201,6 @@ tests/test_chess_rules.py
 pip install -r chess_rules/requirements.txt
 python -m chess_rules.experiment          # full run (~2 min)
 python -m chess_rules.experiment --quick   # smoke test
+python -m chess_rules.sanity               # memorization / hard-negative audit
 pytest tests/test_chess_rules.py
 ```

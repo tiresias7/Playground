@@ -83,6 +83,21 @@ def test_rules_invariant_strategy_specific(small_data):
     assert own >= cross
 
 
+def test_hard_negative_generator_produces_truly_illegal_moves():
+    """sanity.py's hard negatives must actually be illegal (labels are correct)."""
+    import chess
+    from chess_rules import sanity
+
+    rng = np.random.default_rng(0)
+    # A position with pins and self-capture possibilities.
+    fen = "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
+    for kind in ("random", "self_capture", "pin_check"):
+        cands, board = sanity._candidates(fen, rng, kind)
+        legal = {(m.from_square, m.to_square) for m in board.legal_moves}
+        for f, t, lab in cands:
+            assert lab == (1 if (f, t) in legal else 0)
+
+
 def test_learner_modules_do_not_import_ground_truth():
     """Firewall: the recovery code must not peek at chess or answer keys."""
     import inspect
