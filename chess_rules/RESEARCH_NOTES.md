@@ -11,6 +11,9 @@ example, or *strategically obvious*, and look "learned" without generalization.
 
 - **Done:** Hamming distance to nearest training position (median 16/64) and
   accuracy-vs-distance bins (legality flat ⇒ generalizes). See `SANITY.md` [H].
+  Move-prediction *ceiling* per bot (`SANITY.md` [I]) and the rule-vs-subset
+  generalization test (`SANITY.md` [J]) are also done — they bound the target
+  scope and confirm legality learned the rule, not the bot's subset.
 - **Open:** Hamming captures *near-duplicate* similarity, not *strategic*
   similarity. Two boards can be far in Hamming yet tactically identical (same
   pawn skeleton, same forced recapture). Better notions to try:

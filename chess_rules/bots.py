@@ -43,15 +43,22 @@ class Bot:
     def scores(self, board: chess.Board, moves: list[chess.Move]) -> np.ndarray:
         raise NotImplementedError
 
-    def choose(self, board: chess.Board) -> chess.Move | None:
+    def policy(self, board: chess.Board):
+        """Return (legal_moves, probability) — the bot's true move distribution."""
         moves = list(board.legal_moves)
         if not moves:
-            return None
+            return [], np.array([])
         s = self.scores(board, moves)
         # Softmax-ish stochastic choice so the support is explored, not just argmax.
         s = s - s.max()
         p = np.exp(s / self.temperature)
         p /= p.sum()
+        return moves, p
+
+    def choose(self, board: chess.Board) -> chess.Move | None:
+        moves, p = self.policy(board)
+        if not moves:
+            return None
         return moves[int(self.rng.choice(len(moves), p=p))]
 
     temperature = 1.0

@@ -163,6 +163,70 @@ It does not capture *strategic* similarity ("obvious what to do anyway") — tha
 is a difficulty axis, not a memorization axis, and is listed as open work in
 `RESEARCH_NOTES.md`.
 
+## [I] Move-prediction CEILING — 16.8% was uninterpretable without it
+
+The bots sample moves stochastically, so even a *perfect* model of bot X cannot
+beat X's own modal-move probability, `ceiling = E[max_m P_X(m)]`. We get it by
+calling the bots directly (`python -m chess_rules.scope`). Comparing our per-bot
+model to its ceiling on the same positions:
+
+| bot | branching | policy entropy | eff. support | **ceiling** | our model | **% of ceiling** |
+|---|---|---|---|---|---|---|
+| capture | 23.1 | 3.49 | 0.70 | 0.290 | 0.274 | **94%** |
+| mobility | 19.4 | 1.72 | 0.35 | 0.617 | 0.324 | 52% |
+| minimax | 28.3 | 3.05 | 0.48 | 0.311 | 0.139 | 45% |
+| center | 30.9 | 3.09 | 0.31 | 0.320 | 0.116 | 36% |
+| random | 31.8 | 4.91 | 1.00 | 0.038 | 0.064 | ≈chance (unlearnable) |
+
+`eff. support = 2^entropy / branching` — random uses **100%** of its legal moves
+(uniform), the strategists use only 31–70% (their fingerprinted sub-universe).
+
+The honest reading of move prediction:
+- **capture: ~94% of ceiling** — nearly saturated; victim value is readable from
+  the target-cell symbol.
+- **center / mobility / minimax: 36–52%** — large headroom, but it is a *feature*
+  limit: these strategies need centrality, 1-ply mobility, and material
+  look-ahead that static geometry+symbol features cannot represent.
+- **random: ceiling ≈ chance** — correctly unpredictable; the 16.8% pooled
+  number was dragged down by random and inflated-difficulty look-ahead bots, and
+  meant little without these per-bot ceilings.
+
+## [J] Did legality learn the RULE, or just bot X's subset?
+
+A model trained on bot X separating X's moves from others does *not* prove rule
+learning — X's moves are a strict, fingerprinted subset of legal moves, so the
+model could learn the subset. Test: train legality on **one** bot, then measure
+recall on legal moves that bot **disfavors / never plays**.
+
+| trained on | least-favored quartile | most-favored quartile | "never played" legal | gap |
+|---|---|---|---|---|
+| capture (narrow, 70% support) | 0.994 | 0.995 | 0.994 | +0.001 |
+| minimax | 0.987 | 0.995 | 0.989 | +0.007 |
+| random (broad) | 0.995 | 0.997 | — | +0.002 |
+
+Recall is ~0.99 **everywhere**, including legal moves the bot effectively never
+plays — the favored-vs-disfavored gap is ≈0. Even the narrow `capture` bot
+yields a legality model that recognizes disfavored legal moves. So it learned
+the **rule**, not the strategic subset. Why: legality lives in move *shapes*
+(displacement geometry + target symbol), which every bot produces across many
+positions; strategy lives in move *choices*. A biased choice distribution still
+exhibits the full shape repertoire.
+
+## Scope — which universe, which claim
+
+The observed moves are a **biased sub-universe** of the legal universe (each bot
+uses 31–70% of its legal support, with a distinct fingerprint — see [I]). Claims
+must name their scope:
+
+- **Rule scope** ("which moves are legal"): recovered for the static
+  geometric/occupancy layer, and it *generalizes across the strategic subset*
+  ([J]) and *across distance from training* ([H]). Not recovered: king-safety,
+  and history-dependent rules (`RESEARCH_NOTES.md` §3).
+- **Target scope** ("which move bot X plays"): needs strategy *on top of* the
+  legal set. Bounded by the per-bot ceiling ([I]); we reach it for capture,
+  fall short where the strategy needs look-ahead. There is no single "move
+  accuracy" — it is per-bot and only meaningful against the ceiling.
+
 ## Verdict
 
 | claim | holds up? |
@@ -173,6 +237,8 @@ is a difficulty axis, not a memorization axis, and is listed as open work in
 | king-safety rule recovered | ❌ 0.47 (chance) — encoding can't carry it |
 | unbounded sliding rule induced | ❌ anchors to observed magnitudes |
 | "legality AUC 0.995" as a rule-discovery claim | ⚠️ inflated by easy negatives; 0.96 on hard negatives is the honest number |
+| legality learned the rule, not bot X's subset | ✅ 0.99 recall on disfavored/never-played legal moves ([J]) |
+| move prediction is "good" | ⚠️ only vs ceiling: 94% for capture, 36–52% for look-ahead bots, ≈chance for random ([I]) |
 | rules invariant across bots / strategy bot-specific | ✅ the strongest finding, unaffected |
 
 The recovered "rules" are best described as the **static, geometric, occupancy
