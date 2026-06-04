@@ -102,6 +102,67 @@ Distinct `|offset|` classes observed per piece (color-folded):
 Near-complete — the varied/weak bots explore the movement repertoire well; only
 the single longest bishop diagonal (rare) is missed.
 
+## [G] Prediction accuracy (not just AUC)
+
+`python -m chess_rules.proximity`, threshold 0.5.
+
+**Legality** (note pin/check: the 0.867 raw accuracy is just the legal base rate
+— balanced accuracy 0.50 confirms chance):
+
+| legal vs. | accuracy | balanced acc | AUC |
+|---|---|---|---|
+| random | 0.995 | 0.994 | 0.995 |
+| self-capture | 0.955 | 0.925 | 0.964 |
+| pin/check | 0.867 | **0.499** | 0.459 |
+
+**Move / strategy** top-1 (predict the bot's move among the legal set):
+
+| bot | top-1 | random-legal baseline |
+|---|---|---|
+| pooled | 0.168 | 0.059 (≈2.9×) |
+| capture | 0.295 | |
+| mobility | 0.210 | |
+| minimax | 0.165 | |
+| center | 0.149 | |
+| random | 0.029 | (≈chance — unpredictable, as it should be) |
+
+## [H] Proximity — exact match is meaningless, so measure distance
+
+Skeptic's point: positions need not be *identical* to a training position to be
+effectively memorized — being *near* one is enough. So measure, for each eval
+position, the Hamming distance (number of differing cells, 0–64) to its
+**nearest** training position:
+
+| min | p5 | median | p95 | max |
+|---|---|---|---|---|
+| 2 | 6 | **16** | 24 | 27 |
+
+Only **0.3%** of eval positions are within 2 cells of any training position. On
+average **16 of 64 squares differ** from the closest training position — these
+are genuinely novel boards, not near-duplicates.
+
+**Does accuracy fall off with distance from training data?** (flat ⇒
+generalization; falling ⇒ interpolation/memorization)
+
+| NN-distance | n | legality acc | move top-1 | (move chance) |
+|---|---|---|---|---|
+| 5–9 | 80 | 0.980 | 0.075 | 0.056 |
+| 10–14 | 196 | 0.963 | 0.168 | 0.053 |
+| 15–19 | 246 | 0.957 | 0.215 | 0.062 |
+| 20–64 | 168 | 0.952 | 0.131 | 0.058 |
+
+- **Legality accuracy is essentially flat** (0.98 → 0.95) across the whole
+  distance range — it does not depend on being near a training position. Strong
+  evidence the recoverable rule layers *generalize* rather than interpolate.
+- **Move accuracy is, if anything, lowest for positions closest to training** —
+  the opposite of the memorization signature. Move predictability tracks
+  position type (branching, bot determinism), not proximity to training data.
+
+Caveat: Hamming distance addresses the *near-duplicate / memorization* concern.
+It does not capture *strategic* similarity ("obvious what to do anyway") — that
+is a difficulty axis, not a memorization axis, and is listed as open work in
+`RESEARCH_NOTES.md`.
+
 ## Verdict
 
 | claim | holds up? |
