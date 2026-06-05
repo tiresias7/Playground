@@ -266,6 +266,42 @@ Takeaway: predictability of a strategy is closable exactly to the depth your
 features match its decision variable. Shallow strategies (centrality) close
 fully; search-based strategies need matching look-ahead.
 
+## [M] Noisy training, capture target — can the model *know* the signal is weak?
+
+The faithful version: train on `alpha·capture + (1-alpha)·uniform`, but the
+**target is the pure capture bot**. And let the model judge significance itself
+via a bootstrap — train K=4 models on independent samples; if the spread of the
+detected capture preference straddles chance, the model reports "not
+significant" *without being told alpha* (`python -m chess_rules.mixture_signal`).
+
+target = pure capture bot, ceiling top1 = 0.304:
+
+| alpha | capture-detect AUC (mean ± 2σ) | **model says significant?** | predict-capture top1 | % of ceiling |
+|---|---|---|---|---|
+| 0.00 | 0.463 ± 0.071 | **no** | 0.108 | 36% |
+| 0.05 | 0.553 ± 0.084 | **no** | 0.181 | 60% |
+| 0.10 | 0.632 ± 0.066 | YES | 0.221 | 73% |
+| 0.20 | 0.841 ± 0.058 | YES | 0.257 | 84% |
+| 0.50 | 0.945 ± 0.052 | YES | 0.286 | 94% |
+
+- **Yes — the model can tell when the signal is insignificant.** The bootstrap
+  CI includes chance (0.5) at alpha ≤ 0.05 → it reports "not significant"; it
+  excludes chance from alpha = 0.10 → "significant". This judgement uses only the
+  spread across resamples, *no knowledge of alpha*. So at 5% capture the model
+  correctly refuses to claim a capture preference.
+- **Recovery degrades gracefully**, 94% → 36% of ceiling as noise grows. Note
+  the two columns measure different things: "predict top1" mixes in the bot's
+  many near-random non-capture moves, so it shows partial recovery (60%) even at
+  alpha=0.05, while "capture-detect AUC" isolates the *preference* and is the one
+  the significance test runs on — and it correctly says that 60% is not
+  statistically trustworthy yet.
+
+The honest answer to "can the model figure out when the signal is not
+significant?": **yes, but only with an uncertainty estimate** (here, bootstrap
+variance). A single point-estimate model cannot — it would just report a number.
+The bootstrap is what turns "I detect AUC 0.55" into "...but that's within
+noise, so I can't claim it."
+
 ## Scope — which universe, which claim
 
 The observed moves are a **biased sub-universe** of the legal universe (each bot
